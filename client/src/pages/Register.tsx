@@ -1,18 +1,22 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { getLoginUrl } from "@/const";
 import { UserPlus, ArrowRight, Check } from "lucide-react";
+
+const API_URL =
+  import.meta.env.VITE_API_URL || "https://cws-ecommerce-api.nadiracemilan25.workers.dev";
 
 export default function Register() {
   const [, setLocation] = useLocation();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleMausOAuthRegister = () => {
-    setIsLoading(true);
-    window.location.href = getLoginUrl();
-  };
+  const [error, setError] = useState<string | null>(null);
 
   const benefits = [
     {
@@ -36,6 +40,63 @@ export default function Register() {
       description: "Lihat rating jujur dari pembeli lain",
     },
   ];
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!email.trim() || !password) {
+      setError("Email dan password wajib diisi");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Password minimal 6 karakter");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Konfirmasi password tidak cocok");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password, name: name.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error || "Gagal mendaftar. Coba lagi.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Registration succeeded; backend register endpoint doesn't auto-login,
+      // so log the user in immediately with the same credentials.
+      const loginRes = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      const loginData = await loginRes.json();
+
+      if (!loginRes.ok || loginData.error) {
+        // Account created but auto-login failed; send to login page instead.
+        setLocation("/login");
+        return;
+      }
+
+      window.location.href = "/";
+    } catch (err) {
+      setError("Gagal terhubung ke server. Coba lagi.");
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -86,7 +147,7 @@ export default function Register() {
           {/* Right Side - Registration Card */}
           <div>
             <Card className="p-8 shadow-lg border-0">
-              <div className="space-y-6">
+              <form onSubmit={handleRegister} className="space-y-6">
                 <div>
                   <h3 className="text-2xl font-bold text-slate-900 mb-2">
                     Mulai Sekarang
@@ -94,6 +155,56 @@ export default function Register() {
                   <p className="text-slate-600 text-sm">
                     Pendaftaran gratis dan mudah hanya dalam beberapa klik
                   </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nama</Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Nama Anda"
+                      autoComplete="name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-email">Email</Label>
+                    <Input
+                      id="reg-email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="nama@email.com"
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reg-password">Password</Label>
+                    <Input
+                      id="reg-password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Minimal 6 karakter"
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Konfirmasi Password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                    />
+                  </div>
                 </div>
 
                 {/* Registration Features */}
@@ -121,9 +232,15 @@ export default function Register() {
                   </div>
                 </div>
 
+                {error && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    {error}
+                  </p>
+                )}
+
                 {/* Register Button */}
                 <Button
-                  onClick={handleMausOAuthRegister}
+                  type="submit"
                   disabled={isLoading}
                   className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 text-base"
                 >
@@ -146,6 +263,7 @@ export default function Register() {
                   <p className="text-slate-600 text-sm">
                     Sudah punya akun?{" "}
                     <button
+                      type="button"
                       onClick={() => setLocation("/login")}
                       className="text-blue-600 hover:underline font-semibold"
                     >
@@ -153,7 +271,7 @@ export default function Register() {
                     </button>
                   </p>
                 </div>
-              </div>
+              </form>
             </Card>
 
             {/* Trust Badges */}
